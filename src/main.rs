@@ -19,25 +19,14 @@ impl<'r> FromParam<'r> for Username {
     }
 }
 
-// #[rocket::async_trait]
-// impl<'r> FromRequest<'r> for Username {
-//     type Error = String;
-//     async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
-//         match req.uri().path().split("/").last() {
-//             None => Outcome::Error((Status::BadRequest, "No username provided".to_string())),
-//             Some(username) => Outcome::Success(Username(username.to_string())),
-//         }
-//     }
-// }
-
 struct AppState {
     db: Mutex<HashMap<Username, SigningKey>>,
 }
 
 #[derive(Default, Debug, Serialize)]
 pub struct KeyDetails {
-    pub public: String,
-    pub private: String,
+    pub verification: String,
+    pub signing: String,
 }
 
 #[derive(Default, Debug, Serialize)]
@@ -61,12 +50,12 @@ fn generate_key(username: Username, state: &State<AppState>) -> Result<Json<KeyD
         .unwrap()
         .insert(username, signing_key.clone());
 
-    let public_b64 = URL_SAFE.encode(signing_key.verifying_key().to_bytes());
-    let private_b64 = URL_SAFE.encode(signing_key.to_bytes());
+    let verification_b64 = URL_SAFE.encode(signing_key.verifying_key().to_bytes());
+    let signing_b64 = URL_SAFE.encode(signing_key.to_bytes());
 
     Ok(Json(KeyDetails {
-        public: public_b64,
-        private: private_b64,
+        verification: verification_b64,
+        signing: signing_b64,
     }))
 }
 
