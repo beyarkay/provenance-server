@@ -32,7 +32,7 @@ pub struct KeyDetails {
 #[derive(Default, Debug, Serialize)]
 pub struct SignerDetails {
     pub verification_url: String,
-    pub verification_key: String,
+    pub verification_key_b64: String,
     pub metadata: HashMap<String, String>,
 }
 
@@ -61,7 +61,7 @@ fn generate_key(username: Username, state: &State<AppState>) -> Result<Json<KeyD
 
 #[get("/provenance/<username>")]
 fn provenance(username: Username, state: &State<AppState>) -> Result<Json<SignerDetails>, String> {
-    let base_url = "http://127.0.0.1:8000";
+    let base_url = "http://localhost:8000";
 
     let binding = state.db.lock().unwrap();
     let Some(signing_key) = binding.get(&username) else {
@@ -74,7 +74,7 @@ fn provenance(username: Username, state: &State<AppState>) -> Result<Json<Signer
 
     Ok(Json(SignerDetails {
         verification_url: format!("{base_url}/{}/provenance", username.0),
-        verification_key: verification_key_b64,
+        verification_key_b64,
         metadata,
     }))
 }
@@ -82,6 +82,23 @@ fn provenance(username: Username, state: &State<AppState>) -> Result<Json<Signer
 #[launch]
 fn rocket() -> _ {
     let db = Mutex::new(HashMap::new());
+
+    // Keep a constant base64 signing key for the user beyarkay for testing purposes
+    let base64_signing_key = "-5TaFC0xFOj_hf7mlvVaLKKpVFTaXUrLDzRqaaf7gFw=";
+    println!("Signing key for user `beyarkay`: {:?}", base64_signing_key);
+    // Decode the base64 string
+    let binding: Vec<u8> = URL_SAFE.decode(base64_signing_key.as_bytes()).unwrap();
+    // Convert the vec to a slice
+    let decoded_base64_slice: &[u8] = binding.as_slice();
+    // Convert the unknown-length slice into a correct-length slice
+    let correct_length_slice = decoded_base64_slice.try_into().unwrap();
+    // Convert the correct-length slice into a SigningKey
+    let signing_key: SigningKey = SigningKey::from_bytes(correct_length_slice);
+    // Add the signing key to the DB
+    db.lock()
+        .unwrap()
+        .insert(Username("beyarkay".to_string()), signing_key.clone());
+
     let state = AppState { db };
 
     rocket::build()
